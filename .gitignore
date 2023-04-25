@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 progress.txt
+
+dag_plots/**
+

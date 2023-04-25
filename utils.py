@@ -6,7 +6,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import precision_score, accuracy_score, f1_score, recall_score
 import networkx as nx
 from castle.datasets import DAG
-from sklearn.metrics import confusion_matrix
 from scipy.special import expit as sigmoid
 from sklearn.model_selection import GridSearchCV
 import lightgbm
@@ -33,13 +32,17 @@ class Simulator(object):
         elif method == 'ldecc':
             algo = LDECCAlgorithm(use_ci_oracle=False, ldecc_do_checks=True)
             
+        #elif method == 'ensemble':
+        #    algo.append(SequentialDiscoveryAlgorithm(use_ci_oracle=False))
+        #    algo.append(MBbyMBAlgorithm(use_ci_oracle=False))
+        #    algo.append(LDECCAlgorithm(use_ci_oracle=False, ldecc_do_checks=True))
+        
         else:
             raise ValueError('This method is currently not implemented. Use "sd", "mb_by_mb", "ldecc".')
                 
         self.result = algo.run(self.df.copy())
+        self.parents_all = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
         self.parents = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
-        #self.parents = [l.remove('Y') for l in self.parents]
-        
         list(map(lambda x: x.remove('Y') if ('Y' in x) else x, self.parents))
 
     def parents_to_vector(self):
@@ -209,6 +212,20 @@ def graph_metrics(parents_est, parents_true):
 
     return {'precision': precision, 'recall': recall, 'f1': f1, 'accuracy': accuracy}
 
+
+
+def choose_idx_treatment(dag):
+    #choose treatment idx
+    idx_treatment = []
+    G_nx =  nx.from_numpy_matrix(dag, create_using=nx.DiGraph)
+    idx_target = dag.shape[0]-1
+       
+    ancestors = nx.ancestors(G_nx, idx_target)
+    no_ancestor = list(set(G_nx.nodes) - ancestors - {dag.shape[0]-1})
+    
+    idx_treatment += list(np.random.choice(list(ancestors), size = 2, replace = False))
+    idx_treatment.append(np.random.choice(no_ancestor))
+    return idx_treatment
 
 
 class IIDGenerator(object):
@@ -411,6 +428,7 @@ class IIDGenerator(object):
 
 
     def define_treatment_variable(self, idx_treatment = None):
+        self.reset_treatment_variable()
                 
         if idx_treatment is None:
             #Choose randonly if nothing is given
@@ -538,11 +556,11 @@ class EvalMetrics(object):
         self.generator.counterfactual_ground_truth(X_intervention)       
 
 
-        self.MSE_counterfactuals = [mean_squared_error(self.generator.df_intervention['Y'].values, counterfactual)
-                                    for counterfactual in self.simulator.counterfactual_outcomes]
+        self.MSE_counterfactuals = [mean_squared_error(self.generator.df_intervention['Y'].values, self.simulator.counterfactual_Y[col])
+                                    for col in self.simulator.counterfactual_Y.columns]
         
-        self.MSE_mean_counterfactuals = [(np.mean(self.generator.df_intervention['Y'].values) - np.mean(counterfactual))**2
-                                         for counterfactual in self.simulator.counterfactual_outcomes]    
+        self.MSE_mean_counterfactuals = [(np.mean(self.generator.df_intervention['Y'].values) - np.mean(self.simulator.counterfactual_Y[col]))**2
+                                         for col in self.simulator.counterfactual_Y.columns]    
         
 
 
