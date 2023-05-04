@@ -22,7 +22,7 @@ class Simulator(object):
         self.df = df
     
     def estimate_parents(self, method = 'sd'):
-        
+        print('The parements are estimated using the causal discovery algorithm {}.'.format(method))
         if method == 'sd':
             algo = SequentialDiscoveryAlgorithm(use_ci_oracle=False)
             
@@ -59,7 +59,7 @@ class Simulator(object):
         self.parents_vector = l_arr
         
     def estimate_counterfactuals(self, X_intervention, method = 'lgbm', hyp_opt = False) -> list:
-        
+        print('The counterfactuals are estimated using {}.'.format(method)) 
         if method == 'lgbm': 
             if hyp_opt:
                 hyp = {#'objective': metric,
@@ -110,7 +110,7 @@ class Simulator(object):
                     est.fit(self.df[cov], self.df['Y'])
                     hyp = est.best_params_
                     
-                model = lightgbm.LGBMRegressor(**hyp)
+                model = lightgbm.LGBMRegressor(verbosity=-1, **hyp)
                 
             elif method == 'linear':
                 model = LinearRegression()
@@ -223,8 +223,9 @@ def choose_idx_treatment(dag):
     ancestors = nx.ancestors(G_nx, idx_target)
     no_ancestor = list(set(G_nx.nodes) - ancestors - {dag.shape[0]-1})
     
-    idx_treatment += list(np.random.choice(list(ancestors), size = 2, replace = False))
-    idx_treatment.append(np.random.choice(no_ancestor))
+    idx_treatment += list(np.random.choice(list(ancestors), size = min(2,len(ancestors)), replace = False))
+    if len(no_ancestor) > 0:
+        idx_treatment.append(np.random.choice(no_ancestor))
     return idx_treatment
 
 
@@ -252,12 +253,12 @@ class IIDGenerator(object):
     def generate_dag(self, n_nodes=20, degree=3, graph_level=5, weight_range=[0,5]):
     
         # generate true causal dag
-        dag = DAG.hierarchical(n_nodes=n_nodes, degree=degree, graph_level=graph_level, weight_range=weight_range, seed=1)
+        dag = DAG.hierarchical(n_nodes=n_nodes, degree=degree, graph_level=graph_level, weight_range=weight_range, seed=2)
         dag = dag.transpose()
         self.dag = dag
         self.B = (self.dag != 0).astype(int)
         self.dag_properties = {'n_nodes': n_nodes, 'degree': degree, 'graph_level': graph_level, 'weight_range': weight_range}
-        logging.info('DAG generated')
+        logging.info('DAG generated with {} nodes, degree of {}, and graph level of {}'.format(n_nodes, degree, graph_level))
     
     def generate_data(self, n=2000, method='linear', sem_type='gauss', noise_scale=1.0):
         

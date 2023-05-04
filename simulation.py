@@ -1,18 +1,17 @@
 import numpy as np
 import pandas as pd
 
-from causal_discovery.utils import *
 from lingam.utils import make_dot
 
 import utils
-import collections 
+import time
 
 #%% Settings
 
 
-n_nodes = [10, 20]#[10, 20, 30, 50, 100]
-degree = [3]
-graph_level=[5]
+n_nodes = [10]#, 20, 30, 50, 100
+degree = [4]#8
+#graph_level=[5, 10, 15]
 weight_range=[[0, 5]] #I think only relevent for linear methods, Should I use None and then creat lin reg weights randomly ?
 
 method = ['nonlinear']#['linear', 'nonlinear']
@@ -21,7 +20,7 @@ sem_type = {'linear': ['gauss', 'exp', 'gumble', 'uniform', 'logistic'], 'nonlin
 N = [1000]#[100, 1000, 10000, 100000]
 noise_scale = [1.]#[0.1, 1, 10]
 
-method_sim = ['sd', 'ldecc']#, 'mb_by_mb'
+method_sim = ['sd']#, 'ldecc', 'mb_by_mb'
 method_fct = ['lgbm']
 
 #%% Run through loop
@@ -30,16 +29,18 @@ graph_metrics = {m: [] for m in method_sim}
 mse_y = {m: [] for m in method_sim}
 mse_mean = {m: [] for m in method_sim}
 
+t0 = time.time()
 
 for n_node in n_nodes:
     for deg in degree:
-        for graph_l in graph_level:
+        for graph_l in [int(n_node/1)]:#, int(n_node/2), int(n_node)#graph_level
             for weight_r in weight_range:
                 #Setup the generator
                 generator = utils.IIDGenerator()
                 generator.generate_dag(n_node, deg, graph_l, weight_r)
                 dot = make_dot(generator.dag.transpose(), labels = ['x_' + str(i) for i in range(generator.dag.shape[0]-1)] + ['Y'])
-                dot.render('dag_plots/dag_' + str(n_node) + '_' + str(deg) +' _' + str(graph_l))
+                dot.render('dag_plots/dag' + '_nodes_' + str(n_node) + '_degree_' + str(deg) +'_graph_level_' + str(graph_l))
+
                 for met in method:
                     for sem_t in sem_type[met]:
                         for n in N:
@@ -55,34 +56,46 @@ for n_node in n_nodes:
                                             #Setup the simulator
                                             sim = utils.Simulator(generator.df.copy())
                                             sim.estimate_parents(method = met_sim)
-                                            X_int = sim.df.iloc[:, idx_t].quantile(0.66)
-                                            sim.estimate_counterfactuals(X_int, method = met_fct)
-                                            
-                                            evaluation = utils.EvalMetrics(generator = generator, simulator = sim)
-                                            evaluation.graph_metrics()
-                                            graph_metrics[met_sim].append(evaluation.graph_metrics)
-                                            
-                                            evaluation.error_counterfactuals(X_int, method = met_fct)
-                                            mse_y[met_sim].append(evaluation.MSE_counterfactuals)
-                                            mse_mean[met_sim].append(evaluation.MSE_mean_counterfactuals)
-                                            del sim
-                                            del evaluation
+                                            print('Estimated parents with', met_sim)
+                                            print(sim.parents)
+                                            #print(sim.parents_all)
+# =============================================================================
+#                                             X_int = sim.df.iloc[:, idx_t].quantile(0.66)
+#                                             
+#                                             #Setup Evaluation
+#                                             evaluation = utils.EvalMetrics(generator = generator, simulator = sim)
+#                                             evaluation.graph_metrics()
+#                                             graph_metrics[met_sim].append(evaluation.graph_metrics)
+#                                             evaluation.error_counterfactuals(X_int, method = met_fct)
+#                                             mse_y[met_sim].append(evaluation.MSE_counterfactuals)
+#                                             mse_mean[met_sim].append(evaluation.MSE_mean_counterfactuals)
+#                                             del sim
+#                                             del evaluation
+# 
+# =============================================================================
+t1 = time.time()
+
+print('This simulation took: ', t1-t0)
 
 #%%
 
-res = {}                                        
+res = {m: [] for m in method_sim}                                    
 for m in graph_metrics.keys():
-    c = collections.Counter()
     for d in graph_metrics[m]:
-        c.update(d)
+        v = list(map(np.mean, d.values()))
+        k = d.keys()
+        t = dict(zip(k, v))
+        res[m].append(t)
         
-    res[m] = {k: np.nanmean(v) for k, v in c.items()}
+    res[m] = pd.DataFrame(res[m])
+    res[m] = dict(res[m].mean())
+    
 
 res_mse = {}
 for m in mse_y.keys():
     res_mse[m] = np.mean(list(map(lambda x: np.mean(x), mse_y[m])))
 
-s = {}
+res_mean = {}
 for m in mse_mean.keys():
     res_mean[m] = np.mean(list(map(lambda x: np.mean(x), mse_mean[m])))
 
@@ -148,6 +161,8 @@ evaluation.graph_metrics()
 evaluation.error_counterfactuals([0,1], method = 'lgbm')
 #evaluation.MSE_counterfactuals
 #evaluation.MSE_mean_counterfactuals
+
+
 
 
 
