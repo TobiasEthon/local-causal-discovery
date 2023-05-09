@@ -67,8 +67,8 @@ def orient_colliders(cpdag, sep_set, tmt=None):
   if tmt is not None:
     tmt_neighbors = set(cpdag.to_undirected().neighbors(tmt))
     node_ids = sorted(node_ids, key=lambda n:0 if n in tmt_neighbors else 1)
-  
-  for (i, j) in combinations(node_ids, 2):
+
+  for (i, j) in combinations(node_ids, 2): 
     adj_i = set(dag.successors(i))
     if j in adj_i:
       continue

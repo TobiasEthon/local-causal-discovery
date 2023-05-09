@@ -42,8 +42,15 @@ class Simulator(object):
                 
         self.result = algo.run(self.df.copy())
         self.parents_all = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
-        self.parents = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
-        list(map(lambda x: x.remove('Y') if ('Y' in x) else x, self.parents))
+        self.adjusted_result = self.result.copy()
+        if 'Y' in self.adjusted_result['tmt_parents']:
+            self.adjusted_result['tmt_parents'].remove('Y')
+        if 'Y' in self.adjusted_result['unoriented']:
+            self.adjusted_result['unoriented'].remove('Y')
+        
+        combos = get_all_combinations(self.adjusted_result["unoriented"], self.adjusted_result["non_colliders"])
+        self.parents = [list(self.adjusted_result['tmt_parents']) + par for par in combos]
+        #list(map(lambda x: x.remove('Y') if ('Y' in x) else x, self.parents))
 
     def parents_to_vector(self):
     

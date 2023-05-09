@@ -9,18 +9,18 @@ import time
 #%% Settings
 
 
-n_nodes = [10]#, 20, 30, 50, 100
-degree = [4]#8
+n_nodes = [5]#, 20, 30, 50, 100
+degree = [3]#8
 #graph_level=[5, 10, 15]
 weight_range=[[0, 5]] #I think only relevent for linear methods, Should I use None and then creat lin reg weights randomly ?
 
 method = ['nonlinear']#['linear', 'nonlinear']
 sem_type = {'linear': ['gauss', 'exp', 'gumble', 'uniform', 'logistic'], 'nonlinear': ['mlp']}#, 'mim'
 
-N = [1000]#[100, 1000, 10000, 100000]
+N = [10000]#[100, 1000, 10000, 100000]
 noise_scale = [1.]#[0.1, 1, 10]
 
-method_sim = ['sd']#, 'ldecc', 'mb_by_mb'
+method_sim = ['ldecc']#, 'ldecc', 'mb_by_mb'
 method_fct = ['lgbm']
 
 #%% Run through loop
@@ -48,7 +48,8 @@ for n_node in n_nodes:
                                 generator.generate_data(n, met, sem_t, noise_s)
                                 idx_treatment = utils.choose_idx_treatment(generator.dag)
                     
-                                for idx_t in idx_treatment:
+                                for idx_t in [idx_treatment[0]]:
+                                    print(idx_t)
                                     generator.define_treatment_variable(idx_t)
                                         
                                     for met_fct in method_fct:
@@ -98,6 +99,24 @@ for m in mse_y.keys():
 res_mean = {}
 for m in mse_mean.keys():
     res_mean[m] = np.mean(list(map(lambda x: np.mean(x), mse_mean[m])))
+
+
+
+
+#%%
+N_OBS = 1000
+N_NODES = 20 
+DEGREE = 4
+GRAPH_LEVEL = 20
+METHOD = 'nonlinear'
+SEM_TYPE = 'mlp'
+WEIGHT = [0, 5]
+NOISE_SCALE = 1.0
+
+
+generator = utils.IIDGenerator()
+generator.generate_dag(N_NODES, DEGREE, GRAPH_LEVEL, WEIGHT)
+generator.generate_data(N_OBS, METHOD, SEM_TYPE, NOISE_SCALE)
 
 
 #%% Generate graph and sample data
