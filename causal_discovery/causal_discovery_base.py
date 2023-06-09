@@ -16,7 +16,6 @@ import copy
 
 from causal_discovery.utils import *
 
-# Adapted from https://github.com/keiichishima/pcalg/blob/master/pcalg.py.
 
 class CausalDiscoveryBase:
 

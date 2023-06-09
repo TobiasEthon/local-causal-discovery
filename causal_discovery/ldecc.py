@@ -316,6 +316,7 @@ class LDECCAlgorithm(CausalDiscoveryBase):
       g, sep_set, markov_blanket = (
           find_markov_blanket(g, sep_set, node_ids, treatment_node_id)
       )
+  
       self.log("Markov blanket of X: %s" % str(to_labels(markov_blanket)))
 
       g, sep_set = do_local_pc(g, sep_set, markov_blanket)

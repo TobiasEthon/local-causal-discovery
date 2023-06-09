@@ -14,14 +14,14 @@ from causal_discovery.pc_alg import PCAlgorithm
 from causal_discovery.mb_by_mb import MBbyMBAlgorithm
 from causal_discovery.sd_alg import SequentialDiscoveryAlgorithm
 from causal_discovery.ldecc import LDECCAlgorithm
-
+from causal_discovery.mb_and_causal_discovery import MB_WITH_CD_ALGO
            
 class Simulator(object):
     
     def __init__(self, df):
         self.df = df
     
-    def estimate_parents(self, method = 'sd'):
+    def estimate_parents(self, method = 'sd', cd_method = None):
         print('The parements are estimated using the causal discovery algorithm {}.'.format(method))
         if method == 'sd':
             algo = SequentialDiscoveryAlgorithm(use_ci_oracle=False)
@@ -31,27 +31,30 @@ class Simulator(object):
                 
         elif method == 'ldecc':
             algo = LDECCAlgorithm(use_ci_oracle=False, ldecc_do_checks=True)
-            
-        #elif method == 'ensemble':
-        #    algo.append(SequentialDiscoveryAlgorithm(use_ci_oracle=False))
-        #    algo.append(MBbyMBAlgorithm(use_ci_oracle=False))
-        #    algo.append(LDECCAlgorithm(use_ci_oracle=False, ldecc_do_checks=True))
+        
+        elif method == 'MB_WITH_CD_ALGO':
+            algo = MB_WITH_CD_ALGO(use_ci_oracle=False, cd_method=cd_method)
         
         else:
             raise ValueError('This method is currently not implemented. Use "sd", "mb_by_mb", "ldecc".')
                 
         self.result = algo.run(self.df.copy())
-        self.parents_all = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
         self.adjusted_result = self.result.copy()
         if 'Y' in self.adjusted_result['tmt_parents']:
             self.adjusted_result['tmt_parents'].remove('Y')
-        if 'Y' in self.adjusted_result['unoriented']:
-            self.adjusted_result['unoriented'].remove('Y')
         
-        combos = get_all_combinations(self.adjusted_result["unoriented"], self.adjusted_result["non_colliders"])
-        self.parents = [list(self.adjusted_result['tmt_parents']) + par for par in combos]
-        #list(map(lambda x: x.remove('Y') if ('Y' in x) else x, self.parents))
-
+        if method in ['mb_by_mb', 'ldecc', 'sd']:
+            self.parents_all = [list(self.result['tmt_parents']) + par for par in get_all_combinations(self.result["unoriented"], self.result["non_colliders"])]
+            
+            if 'Y' in self.adjusted_result['unoriented']:
+                self.adjusted_result['unoriented'].remove('Y')
+            
+            combos = get_all_combinations(self.adjusted_result["unoriented"], self.adjusted_result["non_colliders"])
+            self.parents = [list(self.adjusted_result['tmt_parents']) + par for par in combos]
+        else:
+            self.parents = [list(self.adjusted_result['tmt_parents'])]
+            
+            
     def parents_to_vector(self):
     
         label_to_idx = {j: i for i, j in enumerate(self.df.columns)}
@@ -73,13 +76,7 @@ class Simulator(object):
                        'n_estimators': [5, 10, 50, 200],
                        'learning_rate': [0.001, 0.01, 0.1],
                        'min_data_in_leaf': [int(len(self.df)**.5)/2, int(len(self.df)**.5), 2*int(len(self.df)**.5)],
-                       # lr should be inversely proportional to n_estimators, we scale it using
-                       # the default ratio (by default, n_estimators=100 and lr=0.1)
                        'num_leaves': 20 + int(min(max(np.log(len(self.df.columns) * 100), 0), 20)),
-                       # with more features, more interactions per tree should be possible
-                       #'feature_fraction_bynode': 0.25,  # should decrease overfitting, in random forest style
-                       #'metric': metric,
-                       #'early_stopping_round': [10, 20, 30],
                        'deterministic': True,
                        'force_row_wise': True,  # This is recommended to use when deterministic=True with many data points.
                        }
@@ -91,13 +88,7 @@ class Simulator(object):
                        'n_estimators': n_estimators,
                        'learning_rate': 10 / n_estimators,
                        'min_data_in_leaf': int(len(self.df)**.5),
-                       # lr should be inversely proportional to n_estimators, we scale it using
-                       # the default ratio (by default, n_estimators=100 and lr=0.1)
                        'num_leaves': 20 + int(min(max(np.log(len(self.df.columns) * 100), 0), 20)),
-                       # with more features, more interactions per tree should be possible
-                       #'feature_fraction_bynode': 0.25,  # should decrease overfitting, in random forest style
-                       #'metric': metric,
-                       #'early_stopping_round': 20,
                        'deterministic': True,
                        'force_row_wise': True,  # This is recommended to use when deterministic=True with many data points.
                        }
@@ -118,9 +109,13 @@ class Simulator(object):
                     hyp = est.best_params_
                     
                 model = lightgbm.LGBMRegressor(verbosity=-1, **hyp)
-                
+
             elif method == 'linear':
                 model = LinearRegression()
+            
+            elif method == 'nn':
+                model = nn()
+
             else:
                 raise ValueError('Method not implemented. Use "lgbm" or "linear".')
                                 
